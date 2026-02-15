@@ -1,0 +1,260 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Users ───────────────────────────────────────────────────────────
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  profile   Profile?
+  swipes    Swipe[]
+  alerts    Alert[]
+}
+
+model Profile {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Location
+  currentCity     String
+  currentCountry  String
+  isVisitor       Boolean  @default(false)
+
+  // Preferences
+  vibeStyles      String   // JSON array: ["rooftop","underground","live-music","chill","cocktail","techno","latin","jazz"]
+  goOutDays       String   @default("[]") // JSON: ["thursday","friday","saturday"]
+  budgetLevel     String   @default("medium") // "budget" | "medium" | "premium" | "any"
+  ageRange        String   @default("")
+  musicGenres     String   @default("[]") // JSON: ["techno","house","hip-hop","latin","jazz","rock","pop"]
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// ─── Venue Cards ─────────────────────────────────────────────────────
+model VenueCard {
+  id              String   @id @default(cuid())
+  name            String
+  venueType       String   // "bar" | "cafe" | "club" | "lounge" | "rooftop" | "pub" | "wine-bar" | "beer-garden" | "restaurant"
+  neighborhood    String
+  city            String
+  country         String
+  address         String   @default("")
+  latitude        Float    @default(0)
+  longitude       Float    @default(0)
+
+  imageUrl        String
+  imageUrls       String   @default("[]")
+  description     String
+  aiInsight       String   @default("")
+  vibeScore       Int      @default(0)
+
+  priceLevel      String   @default("$$")
+  rating          Float    @default(0)
+  reviewCount     Int      @default(0)
+  popularTimes    String   @default("{}")
+  bestNights      String   @default("[]")
+  musicGenres     String   @default("[]")
+  dressCode       String   @default("")
+  ageRange        String   @default("")
+  hasOutdoor      Boolean  @default(false)
+  hasFood         Boolean  @default(false)
+  hasDanceFloor   Boolean  @default(false)
+  hasLiveMusic    Boolean  @default(false)
+
+  googleMapsUrl   String   @default("")
+  instagramHandle String   @default("")
+  websiteUrl      String   @default("")
+  sourceData      String   @default("[]")
+
+  tags            String
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  swipes          Swipe[]
+  alerts          Alert[]
+
+  @@index([city, venueType])
+  @@index([city, country])
+}
+
+// ─── Event Cards (ALL types: concerts, courses, sports, social, etc.) ─
+model EventCard {
+  id              String   @id @default(cuid())
+  title           String
+  eventType       String   // "concert" | "dj-set" | "festival" | "live-music" | "comedy" | "open-mic" | "themed-party" | "pub-crawl" | "art-show" | "workshop" | "language-exchange" | "sports" | "cycling" | "yoga" | "food-tour" | "pub-quiz" | "karaoke" | "networking" | "outdoor" | "cinema" | "market" | "cultural"
+  category        String   @default("nightlife") // "nightlife" | "music" | "social" | "sports" | "wellness" | "food" | "arts" | "learning" | "outdoor" | "community"
+  venueName       String
+  neighborhood    String   @default("")
+  city            String
+  country         String
+  address         String   @default("")
+
+  imageUrl        String
+  imageUrls       String   @default("[]")
+  description     String
+  aiInsight       String   @default("")      // AI-generated one-liner from social scanning
+  hypeScore       Int      @default(0)       // 0-100 AI buzz score
+
+  startDate       DateTime
+  endDate         DateTime?
+  doorsOpen       String   @default("")
+  dayOfWeek       String   @default("")
+  isRecurring     Boolean  @default(false)    // weekly language exchange, monthly pub quiz, etc.
+  recurringDay    String   @default("")       // "every-thursday", "first-saturday", etc.
+  priceMin        Float    @default(0)
+  priceMax        Float    @default(0)
+  currency        String   @default("EUR")
+  isFree          Boolean  @default(false)
+  isSoldOut       Boolean  @default(false)
+
+  // Performers / Hosts 
+  artists         String   @default("[]")     // JSON — DJs, bands, speakers, instructors
+  organizer       String   @default("")       // who's hosting
+  genre           String   @default("")
+  musicGenres     String   @default("[]")
+
+  // Source tracking — WHERE our AI found this
+  ticketUrl       String   @default("")
+  sourceUrl       String   @default("")
+  instagramUrl    String   @default("")
+  tiktokUrl       String   @default("")
+  sourcePlatform  String   @default("")       // "instagram_scout" | "tiktok_scout" | "resident_advisor" | "eventbrite" | "meetup" | "facebook_events" etc.
+  discoveredBy    String   @default("ai_scout") // "ai_scout" | "manual" | "partner" | "user_submitted"
+  socialPostId    String   @default("")       // original IG/TikTok post ID
+
+  tags            String                       // JSON array
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  swipes          Swipe[]
+  alerts          Alert[]
+
+  @@index([city, eventType])
+  @@index([city, category])
+  @@index([city, startDate])
+  @@index([startDate])
+  @@index([category])
+}
+
+// ─── Swipe Actions ───────────────────────────────────────────────────
+model Swipe {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  venueCardId String?
+  venueCard   VenueCard? @relation(fields: [venueCardId], references: [id], onDelete: Cascade)
+  eventCardId String?
+  eventCard   EventCard? @relation(fields: [eventCardId], references: [id], onDelete: Cascade)
+  action      String   // "like" | "pass" | "superlike"
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, venueCardId])
+  @@unique([userId, eventCardId])
+  @@index([userId, action])
+}
+
+// ─── Alerts ──────────────────────────────────────────────────────────
+model Alert {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  venueCardId String?
+  venueCard   VenueCard? @relation(fields: [venueCardId], references: [id], onDelete: Cascade)
+  eventCardId String?
+  eventCard   EventCard? @relation(fields: [eventCardId], references: [id], onDelete: Cascade)
+
+  alertType   String   @default("new_event")
+  message     String   @default("")
+  triggered   Boolean  @default(false)
+  triggeredAt DateTime?
+
+  targetCity   String  @default("")
+  targetGenre  String  @default("")
+  targetArtist String  @default("")
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId, alertType])
+  @@index([alertType, triggered])
+}
+
+// ─── Source Tracking ─────────────────────────────────────────────────
+model ScrapedSource {
+  id            String   @id @default(cuid())
+  platform      String
+  sourceUrl     String
+  city          String
+  dataType      String
+  rawData       String   @default("{}")
+  processedAt   DateTime?
+  status        String   @default("pending")
+  createdAt     DateTime @default(now())
+
+  @@index([city, platform])
+  @@index([status])
+}
+
+// ─── AI Social Media Scout Accounts ──────────────────────────────────
+// Tracks our AI-operated IG & TikTok accounts that scan for events
+model SocialScoutAccount {
+  id              String   @id @default(cuid())
+  platform        String           // "instagram" | "tiktok"
+  accountHandle   String           // "@vibeswipe.scout.bcn"
+  city            String
+  country         String
+  isActive        Boolean  @default(true)
+
+  // Stats
+  followingCount  Int      @default(0)     // how many pages/accounts we follow
+  postsScanned    Int      @default(0)     // total posts analyzed
+  eventsFound     Int      @default(0)     // events extracted
+  lastScanAt      DateTime?
+
+  // What this scout monitors (JSON arrays)
+  monitoredAccounts String @default("[]")  // ["@raborazzmatazz", "@solohouse_bcn", ...]
+  monitoredHashtags String @default("[]")  // ["#barcelonaevents", "#bcnnightlife", ...]
+  monitoredPages    String @default("[]")  // event pages, venue pages, promoter accounts
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([platform, city])
+  @@index([city])
+}
+
+// ─── Social Posts Captured by Scout ──────────────────────────────────
+model ScoutedPost {
+  id              String   @id @default(cuid())
+  platform        String           // "instagram" | "tiktok"
+  postId          String           // original platform post ID
+  accountHandle   String           // who posted it
+  city            String
+
+  // Content analysis
+  caption         String   @default("")
+  hashtags        String   @default("[]")   // JSON array
+  aiAnalysis      String   @default("{}")   // JSON: { isEvent: true, eventType: "dj-set", date: "...", venue: "..." }
+  isEvent         Boolean  @default(false)  // AI determined this is an event
+  confidence      Float    @default(0)      // 0-1 AI confidence score
+
+  // Processing status
+  processedAt     DateTime?
+  eventCardId     String?          // if converted to an EventCard
+  status          String   @default("pending") // "pending" | "processed" | "rejected" | "converted"
+
+  scannedAt       DateTime @default(now())
+
+  @@unique([platform, postId])
+  @@index([city, isEvent])
+  @@index([status])
+}
