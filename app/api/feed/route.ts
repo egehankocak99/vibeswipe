@@ -87,6 +87,10 @@ export async function GET(request: NextRequest) {
           musicGenres: JSON.parse(v.musicGenres || '[]'),
           popularTimes: JSON.parse(v.popularTimes || '{}'),
           sourceData: JSON.parse(v.sourceData || '[]'),
+          openingHours: JSON.parse(v.openingHours || '{}'),
+          bestDaysToVisit: JSON.parse(v.bestDaysToVisit || '[]'),
+          mustTryItems: JSON.parse(v.mustTryItems || '[]'),
+          tips: JSON.parse(v.tips || '[]'),
           matchScore,
           cardType: 'venue',
         }

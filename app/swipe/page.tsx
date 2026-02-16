@@ -24,6 +24,16 @@ interface FeedCard {
   instagramHandle?: string
   bestNights?: string[]
   popularTimes?: Record<string, string>
+  // Venue detail fields (from Foursquare/real data)
+  openingHours?: Record<string, string>
+  bestDaysToVisit?: string[]
+  mustTryItems?: string[]
+  tips?: string[]
+  specialties?: string
+  cuisine?: string
+  sourceApi?: string
+  dataFreshness?: string
+  websiteUrl?: string
   // Event fields
   title?: string
   eventType?: string
@@ -42,6 +52,8 @@ interface FeedCard {
   hypeScore?: number
   sourcePlatform?: string
   discoveredBy?: string
+  ticketUrl?: string
+  isTrending?: boolean
   // Common
   neighborhood?: string
   city?: string
@@ -187,6 +199,21 @@ function SwipeCard({
           }`}>
             {isVenue ? '📍 Venue' : `${typeEmoji} ${card.eventType?.replace(/-/g, ' ')}`}
           </span>
+          {card.isTrending && (
+            <span className="px-3 py-1 rounded-full text-xs font-medium border bg-orange-500/30 text-orange-300 border-orange-500/40">
+              🔥 Trending
+            </span>
+          )}
+          {card.discoveredBy && card.discoveredBy !== 'manual' && card.discoveredBy !== 'ai_scout' && (
+            <span className={`px-3 py-1 rounded-full text-xs font-medium border ${
+              card.discoveredBy === 'ticketmaster' ? 'bg-blue-500/30 text-blue-300 border-blue-500/40' :
+              card.discoveredBy === 'eventbrite' ? 'bg-orange-500/30 text-orange-300 border-orange-500/40' :
+              card.discoveredBy === 'foursquare' ? 'bg-pink-500/30 text-pink-300 border-pink-500/40' :
+              sourceBadgeColor()
+            }`}>
+              {card.discoveredBy === 'ticketmaster' ? '🎫' : card.discoveredBy === 'eventbrite' ? '🎪' : '📍'} {card.discoveredBy}
+            </span>
+          )}
           {card.discoveredBy === 'ai_scout' && (
             <span className={`px-3 py-1 rounded-full text-xs font-medium border ${sourceBadgeColor()}`}>
               🤖 AI Scout
@@ -304,12 +331,77 @@ function SwipeCard({
                 className="mt-3 pt-3 border-t border-white/10 overflow-hidden"
               >
                 {card.description && (
-                  <p className="text-white/70 text-sm mb-2">{card.description}</p>
+                  <p className="text-white/70 text-sm mb-3">{card.description}</p>
                 )}
+
+                {/* ── Venue Details: Hours, Tips, What to Order ── */}
+                {isVenue && card.openingHours && Object.keys(card.openingHours).length > 0 && (
+                  <div className="mb-3">
+                    <p className="text-white/80 text-xs font-semibold mb-1.5">🕐 Opening Hours</p>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
+                      {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => (
+                        card.openingHours?.[day] ? (
+                          <p key={day} className={`text-xs ${
+                            card.bestDaysToVisit?.includes(day) ? 'text-emerald-300 font-semibold' : 'text-white/50'
+                          }`}>
+                            {day.slice(0, 3).toUpperCase()}: {card.openingHours[day]}
+                            {card.bestDaysToVisit?.includes(day) ? ' ⭐' : ''}
+                          </p>
+                        ) : null
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {isVenue && card.bestDaysToVisit && card.bestDaysToVisit.length > 0 && (
+                  <p className="text-emerald-300/80 text-xs mb-2">
+                    ✨ Best days to go: <span className="font-semibold">{card.bestDaysToVisit.map(d => d.charAt(0).toUpperCase() + d.slice(1)).join(', ')}</span>
+                  </p>
+                )}
+
+                {isVenue && card.mustTryItems && card.mustTryItems.length > 0 && (
+                  <div className="mb-2">
+                    <p className="text-amber-300/80 text-xs font-semibold mb-1">🍹 Must Try</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {card.mustTryItems.map((item, i) => (
+                        <span key={i} className="px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-200 text-[11px] border border-amber-500/20">
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {isVenue && card.tips && card.tips.length > 0 && (
+                  <div className="mb-2">
+                    <p className="text-cyan-300/80 text-xs font-semibold mb-1">💡 Tips</p>
+                    {card.tips.slice(0, 2).map((tip, i) => (
+                      <p key={i} className="text-white/50 text-xs italic mb-1">"{tip}"</p>
+                    ))}
+                  </div>
+                )}
+
+                {isVenue && card.specialties && (
+                  <p className="text-white/50 text-xs mb-1">🏷️ Known for: {card.specialties}</p>
+                )}
+
+                {/* ── Event Details ── */}
+                {!isVenue && card.ticketUrl && (
+                  <a
+                    href={card.ticketUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-block mb-2 px-3 py-1.5 rounded-lg bg-purple-600/40 text-purple-200 text-xs font-semibold border border-purple-500/30 hover:bg-purple-600/60 transition-colors"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    🎟️ Get Tickets
+                  </a>
+                )}
+
                 {card.sourcePlatform && (
-                  <p className="text-white/40 text-xs">
+                  <p className="text-white/40 text-xs mt-1">
                     Source: {card.sourcePlatform}
-                    {card.discoveredBy === 'ai_scout' && ' · Discovered by AI Scout 🤖'}
+                    {card.sourceApi && card.sourceApi !== 'manual' && ` · Live data 🔄`}
                   </p>
                 )}
                 {isVenue && card.bestNights && card.bestNights.length > 0 && (
@@ -321,6 +413,17 @@ function SwipeCard({
                   <p className="text-white/50 text-xs mt-1">
                     🎵 {card.musicGenres.join(', ')}
                   </p>
+                )}
+                {isVenue && card.websiteUrl && (
+                  <a
+                    href={card.websiteUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-purple-400 text-xs underline mt-1 inline-block"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    🌐 Visit website
+                  </a>
                 )}
               </motion.div>
             )}

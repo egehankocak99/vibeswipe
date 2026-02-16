@@ -70,6 +70,22 @@ model VenueCard {
   hasDanceFloor   Boolean  @default(false)
   hasLiveMusic    Boolean  @default(false)
 
+  // Real venue details (from Foursquare / Google Places)
+  openingHours    String   @default("{}")    // JSON: {"monday":"10:00-23:00","tuesday":"10:00-23:00",...}
+  bestDaysToVisit String   @default("[]")    // JSON: ["friday","saturday"] — best days based on reviews/buzz
+  mustTryItems    String   @default("[]")    // JSON: ["Espresso Martini","Truffle Fries","Aperol Spritz"]
+  specialties     String   @default("")      // "Known for craft cocktails & rooftop views"
+  tips            String   @default("[]")    // JSON: user tips from Foursquare — ["Ask for the secret menu","Sit upstairs for sunset views"]
+  cuisine         String   @default("")      // "Italian" | "Japanese" | "Tapas" | "Cocktails"
+  reservationUrl  String   @default("")      // booking link if applicable
+  phoneNumber     String   @default("")
+
+  // Data source tracking
+  externalId      String   @default("")      // Foursquare/Google ID for dedup
+  sourceApi       String   @default("manual") // "foursquare" | "google_places" | "manual" | "ai_scout"
+  lastRefreshed   DateTime?                   // when data was last pulled from API
+  dataFreshness   String   @default("static") // "live" | "weekly" | "static"
+
   googleMapsUrl   String   @default("")
   instagramHandle String   @default("")
   websiteUrl      String   @default("")
@@ -84,6 +100,7 @@ model VenueCard {
 
   @@index([city, venueType])
   @@index([city, country])
+  @@index([externalId])
 }
 
 // ─── Event Cards (ALL types: concerts, courses, sports, social, etc.) ─
@@ -127,9 +144,13 @@ model EventCard {
   sourceUrl       String   @default("")
   instagramUrl    String   @default("")
   tiktokUrl       String   @default("")
-  sourcePlatform  String   @default("")       // "instagram_scout" | "tiktok_scout" | "resident_advisor" | "eventbrite" | "meetup" | "facebook_events" etc.
-  discoveredBy    String   @default("ai_scout") // "ai_scout" | "manual" | "partner" | "user_submitted"
+  sourcePlatform  String   @default("")       // "instagram_scout" | "tiktok_scout" | "resident_advisor" | "eventbrite" | "meetup" | "facebook_events" | "ticketmaster"
+  discoveredBy    String   @default("ai_scout") // "ai_scout" | "manual" | "partner" | "user_submitted" | "ticketmaster" | "foursquare" | "eventbrite"
   socialPostId    String   @default("")       // original IG/TikTok post ID
+  externalId      String   @default("")       // Ticketmaster/Eventbrite event ID for dedup
+  sourceApi       String   @default("manual") // "ticketmaster" | "eventbrite" | "manual" | "ai_scout"
+  lastRefreshed   DateTime?                   // when data was last pulled from API
+  isTrending      Boolean  @default(false)    // AI determined this is trending
 
   tags            String                       // JSON array
 
@@ -143,6 +164,7 @@ model EventCard {
   @@index([city, startDate])
   @@index([startDate])
   @@index([category])
+  @@index([externalId])
 }
 
 // ─── Swipe Actions ───────────────────────────────────────────────────
