@@ -46,9 +46,9 @@ export default function OnboardingPage() {
       })
 
       const data = await response.json()
-      localStorage.setItem('userId', data.userId)
-      localStorage.setItem('city', city)
-      localStorage.setItem('country', selectedCityInfo?.country || '')
+      localStorage.setItem('vibeswipe_userId', data.userId)
+      localStorage.setItem('vibeswipe_city', city)
+      localStorage.setItem('vibeswipe_country', selectedCityInfo?.country || '')
 
       // Seed data
       await fetch('/api/seed', { method: 'POST' })
