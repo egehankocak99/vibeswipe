@@ -1,16 +1,26 @@
-import type { Metadata } from "next";
-import { Manrope } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import { Toaster } from 'react-hot-toast';
 
-const manrope = Manrope({ subsets: ["latin"], weight: ["400", "500", "600", "700", "800"] });
+const inter = Inter({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
-  title: "VibeSwipe — Discover Local Nightlife & Events",
-  description: "Find the best bars, clubs, events, DJs & concerts wherever you are. Swipe, save, get alerts.",
+  title: "VibeSwipe",
+  description: "Discover events, people, and places. Swipe your city.",
   manifest: "/manifest.json",
-  themeColor: "#a855f7",
-  viewport: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no",
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: '#08080c',
 };
 
 export default function RootLayout({
@@ -20,15 +30,22 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={manrope.className}>
-        {children}
+      <body className={inter.className}>
+        <div className="mx-auto min-h-screen max-w-[430px] relative">
+          {children}
+        </div>
         <Toaster
           position="top-center"
           toastOptions={{
+            duration: 2000,
             style: {
-              background: '#1a1225',
-              color: '#fff',
-              border: '1px solid rgba(168, 85, 247, 0.3)',
+              background: '#14141e',
+              color: '#f0f0f5',
+              border: '1px solid rgba(255,255,255,0.06)',
+              borderRadius: '0.75rem',
+              fontSize: '0.8125rem',
+              fontWeight: 500,
+              padding: '0.625rem 1rem',
             },
           }}
         />

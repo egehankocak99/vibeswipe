@@ -1,212 +1,204 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { SUPPORTED_CITIES, NIGHTLIFE_CITIES } from '@/lib/nightlife-data'
-import toast from 'react-hot-toast'
+import { motion } from 'framer-motion'
+import { MOCK_EVENTS } from '@/lib/mock-data'
+
+const CITIES = [
+  'Barcelona', 'Berlin', 'Amsterdam', 'London', 'Paris', 'Lisbon',
+  'Prague', 'Budapest', 'Athens', 'Milan', 'Rome', 'Copenhagen',
+  'Istanbul', 'Dublin', 'New York', 'Tokyo', 'Bangkok', 'Seoul',
+]
 
 export default function HomePage() {
   const router = useRouter()
   const [city, setCity] = useState('')
-  const [isVisitor, setIsVisitor] = useState(false)
+  const [mounted, setMounted] = useState(false)
 
-  const selectedCityInfo = NIGHTLIFE_CITIES.find(c => c.city === city)
+  useEffect(() => {
+    setMounted(true)
+    const stored = localStorage.getItem('vibeswipe_city')
+    if (stored) setCity(stored)
+  }, [])
 
-  const handleQuickStart = async () => {
-    if (!city) {
-      toast.error('Pick a city first')
-      return
-    }
-
-    try {
-      const response = await fetch('/api/onboarding', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: `user_${Date.now()}@vibeswipe.app`,
-          currentCity: city,
-          currentCountry: selectedCityInfo?.country || '',
-          isVisitor,
-          vibeStyles: ['cocktail', 'live-music', 'rooftop'],
-          goOutDays: ['friday', 'saturday'],
-          budgetLevel: 'medium',
-          musicGenres: ['house', 'techno', 'indie'],
-        }),
-      })
-      const data = await response.json()
-      localStorage.setItem('vibeswipe_userId', data.userId)
-      localStorage.setItem('vibeswipe_city', city)
-      localStorage.setItem('vibeswipe_country', selectedCityInfo?.country || '')
-
-      // Seed data
-      await fetch('/api/seed', { method: 'POST' })
-
-      router.push('/swipe')
-    } catch (error) {
-      console.error('Quick start error:', error)
-      toast.error('Something went wrong. Try again.')
-    }
+  const handleStart = () => {
+    if (!city) return
+    localStorage.setItem('vibeswipe_city', city)
+    localStorage.setItem('vibeswipe_userId', `demo_${Date.now()}`)
+    router.push('/swipe')
   }
 
+  // Preview card from mock data
+  const preview = MOCK_EVENTS[0]
+
+  if (!mounted) return null
+
   return (
-    <div className="min-h-screen">
-      <div className="mx-auto min-h-screen max-w-[420px] relative overflow-hidden">
-        {/* Background effects */}
-        <div className="pointer-events-none absolute -top-32 -left-32 h-64 w-64 rounded-full bg-[radial-gradient(circle,rgba(168,85,247,0.25),transparent_70%)]" />
-        <div className="pointer-events-none absolute top-48 -right-24 h-48 w-48 rounded-full bg-[radial-gradient(circle,rgba(236,72,153,0.2),transparent_70%)]" />
-        <div className="pointer-events-none absolute bottom-32 -left-16 h-40 w-40 rounded-full bg-[radial-gradient(circle,rgba(59,130,246,0.15),transparent_70%)]" />
+    <div className="min-h-screen flex flex-col px-6 pt-safe">
+      {/* ── Floating ambient blobs ── */}
+      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div className="absolute -top-20 -right-20 w-60 h-60 rounded-full bg-purple-600/5 blur-3xl" />
+        <div className="absolute top-1/2 -left-20 w-48 h-48 rounded-full bg-fuchsia-600/5 blur-3xl" />
+        <div className="absolute bottom-20 right-10 w-36 h-36 rounded-full bg-blue-600/4 blur-3xl" />
+      </div>
 
-        <div className="h-12" />
-
-        {/* Logo & header */}
-        <header className="px-6 pt-4 pb-6 text-center">
-          <div className="inline-flex items-center gap-2 rounded-full glass px-4 py-2 mb-4">
-            <span className="h-2 w-2 rounded-full bg-purple-500 animate-pulse" />
-            <span className="text-xs font-semibold text-purple-300">AI-Powered Discovery</span>
-          </div>
-          <h1 className="text-4xl font-extrabold">
+      {/* ── Header ── */}
+      <header className="pt-12 pb-8 text-center relative z-10">
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+        >
+          <h1 className="text-4xl font-bold tracking-tight">
             <span className="gradient-text">VibeSwipe</span>
           </h1>
-          <p className="mt-2 text-sm text-gray-400 leading-relaxed">
-            Find bars, clubs, events & concerts<br />
-            wherever you are — swipe style.
+          <p className="mt-2 text-[var(--text-tertiary)] text-sm">
+            Discover what&apos;s happening around you
           </p>
-        </header>
+        </motion.div>
+      </header>
 
-        {/* Hero card preview */}
-        <main className="px-6 space-y-5 pb-8">
-          <section className="rounded-3xl glass p-5 fade-in-up">
-            <div className="relative h-44 rounded-2xl overflow-hidden mb-4">
-              <img
-                src="https://images.unsplash.com/photo-1566737236500-c8ac43014a67?w=800&q=80"
-                alt="Nightlife"
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-              <div className="absolute bottom-3 left-3">
-                <span className="rounded-full bg-purple-600/90 px-3 py-1 text-xs font-bold text-white">
-                  🔥 Trending Tonight
-                </span>
-              </div>
-              <div className="absolute top-3 right-3">
-                <span className="rounded-full bg-black/50 px-2.5 py-1 text-xs font-semibold text-white">
-                  92% match
-                </span>
-              </div>
+      {/* ── Preview Coaster Card ── */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.5, delay: 0.15 }}
+        className="relative z-10 mb-6"
+      >
+        <div className="coaster-card coaster-texture overflow-hidden">
+          <div
+            className="coaster-illustration h-44 relative"
+            style={{
+              background: `linear-gradient(145deg, ${preview.gradientFrom}, ${preview.gradientTo})`,
+            }}
+          >
+            {/* Decorative elements */}
+            <div className="absolute inset-0 overflow-hidden">
+              <div className="absolute w-20 h-20 rounded-full bg-white/[0.06] top-4 right-8 blur-md" />
+              <div className="absolute w-12 h-12 rounded-full bg-white/[0.04] bottom-6 left-6 blur-sm" />
+            </div>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-6xl float select-none" style={{ filter: 'drop-shadow(0 6px 16px rgba(0,0,0,0.3))' }}>
+                {preview.emoji}
+              </span>
             </div>
 
-            <div className="flex items-start justify-between">
+            {/* Badge */}
+            <div className="absolute bottom-3 left-4">
+              <span className="px-2.5 py-1 rounded-full bg-black/20 backdrop-blur-md border border-white/10 text-white/80 text-[11px] font-medium">
+                🔥 Preview
+              </span>
+            </div>
+            <div className="absolute top-3 right-4">
+              <div className="w-10 h-10 rounded-full bg-black/20 backdrop-blur-md border border-white/10 flex items-center justify-center">
+                <span className="text-white text-[11px] font-bold">{preview.matchScore}%</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-[var(--surface)] p-4">
+            <h3 className="font-bold text-white text-base">{preview.title}</h3>
+            <p className="text-[var(--text-secondary)] text-xs mt-0.5">
+              {preview.venueName} · {preview.neighborhood}
+            </p>
+            <div className="flex gap-1.5 mt-2.5">
+              {preview.tags.slice(0, 3).map(tag => (
+                <span key={tag} className="tag-pill">#{tag}</span>
+              ))}
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* ── City Selector ── */}
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.25 }}
+        className="relative z-10 mb-4"
+      >
+        <div className="glass-solid rounded-2xl p-5">
+          <label className="text-sm font-semibold text-white mb-3 block">
+            Where are you?
+          </label>
+          <select
+            value={city}
+            onChange={(e) => setCity(e.target.value)}
+            className="w-full rounded-xl bg-white/[0.04] border border-[var(--border)] px-4 py-3 text-sm text-white focus:border-[var(--accent)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]/30 appearance-none transition-all"
+            style={{ fontSize: '16px' }}
+          >
+            <option value="" className="bg-[var(--surface)]">Select your city...</option>
+            {CITIES.map(c => (
+              <option key={c} value={c} className="bg-[var(--surface)]">{c}</option>
+            ))}
+          </select>
+        </div>
+      </motion.div>
+
+      {/* ── CTA ── */}
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.35 }}
+        className="relative z-10 space-y-3 mb-8"
+      >
+        <button
+          onClick={handleStart}
+          disabled={!city}
+          className={`w-full py-4 rounded-2xl text-sm font-semibold transition-all ${
+            city
+              ? 'btn-primary w-full'
+              : 'bg-white/[0.03] text-[var(--text-tertiary)] border border-[var(--border)] cursor-not-allowed'
+          }`}
+        >
+          {city ? `Explore ${city}` : 'Select a city to start'}
+        </button>
+
+        <div className="flex gap-2.5">
+          <Link
+            href="/onboarding"
+            className="flex-1 btn-ghost text-center text-xs"
+          >
+            Full Setup
+          </Link>
+          <Link
+            href="/saved"
+            className="flex-1 btn-ghost text-center text-xs"
+          >
+            My Saved
+          </Link>
+        </div>
+      </motion.div>
+
+      {/* ── How It Works ── */}
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.45 }}
+        className="relative z-10 glass-solid rounded-2xl p-5 mb-8"
+      >
+        <h3 className="text-sm font-semibold text-white mb-4">How it works</h3>
+        <div className="space-y-4">
+          {[
+            { icon: '✦', title: 'Curated Feed', desc: 'Events matched to your taste' },
+            { icon: '👆', title: 'Swipe to Discover', desc: 'Save, skip, or love — your call' },
+            { icon: '◎', title: 'Smart Alerts', desc: 'Never miss what matters to you' },
+            { icon: '🌍', title: 'Any City', desc: 'Explore at home or while traveling' },
+          ].map((f, i) => (
+            <div key={i} className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-lg bg-white/[0.04] flex items-center justify-center shrink-0">
+                <span className="text-sm">{f.icon}</span>
+              </div>
               <div>
-                <h2 className="text-lg font-extrabold text-white">Berghain</h2>
-                <p className="text-xs text-gray-400">Friedrichshain, Berlin</p>
-              </div>
-              <div className="flex items-center gap-1 text-yellow-400 text-xs font-bold">
-                ★ 4.8
+                <div className="text-xs font-semibold text-white">{f.title}</div>
+                <div className="text-xs text-[var(--text-tertiary)]">{f.desc}</div>
               </div>
             </div>
-
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              <span className="rounded-full bg-purple-500/20 px-2.5 py-1 text-xs font-semibold text-purple-300">techno</span>
-              <span className="rounded-full bg-pink-500/20 px-2.5 py-1 text-xs font-semibold text-pink-300">legendary</span>
-              <span className="rounded-full bg-blue-500/20 px-2.5 py-1 text-xs font-semibold text-blue-300">late-night</span>
-            </div>
-          </section>
-
-          {/* City selector */}
-          <section className="rounded-3xl glass p-5 fade-in-up" style={{ animationDelay: '0.1s' }}>
-            <h3 className="text-sm font-bold text-white mb-3">Where are you?</h3>
-
-            <select
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-              className="w-full rounded-2xl bg-white/5 border border-white/10 px-4 py-3 text-sm font-semibold text-white focus:border-purple-500 focus:outline-none appearance-none"
-              style={{ fontSize: '16px' }}
-            >
-              <option value="" className="bg-[#1a1225]">Select city...</option>
-              {SUPPORTED_CITIES.map(c => (
-                <option key={c} value={c} className="bg-[#1a1225]">{c}</option>
-              ))}
-            </select>
-
-            {city && (
-              <div className="mt-3 flex items-center gap-3">
-                <button
-                  onClick={() => setIsVisitor(false)}
-                  className={`flex-1 rounded-xl py-2.5 text-xs font-bold transition-all ${
-                    !isVisitor
-                      ? 'bg-purple-600 text-white neon-purple'
-                      : 'bg-white/5 text-gray-400 border border-white/10'
-                  }`}
-                >
-                  🏠 I live here
-                </button>
-                <button
-                  onClick={() => setIsVisitor(true)}
-                  className={`flex-1 rounded-xl py-2.5 text-xs font-bold transition-all ${
-                    isVisitor
-                      ? 'bg-pink-600 text-white neon-pink'
-                      : 'bg-white/5 text-gray-400 border border-white/10'
-                  }`}
-                >
-                  ✈️ Visiting
-                </button>
-              </div>
-            )}
-          </section>
-
-          {/* CTA */}
-          <section className="space-y-3 fade-in-up" style={{ animationDelay: '0.2s' }}>
-            <button
-              onClick={handleQuickStart}
-              disabled={!city}
-              className={`w-full rounded-2xl py-4 text-sm font-bold transition-all ${
-                city
-                  ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/25 active:scale-[0.98]'
-                  : 'bg-white/5 text-gray-500 border border-white/10 cursor-not-allowed'
-              }`}
-            >
-              {city ? `Explore ${city} →` : 'Select a city to start'}
-            </button>
-
-            <div className="flex gap-3">
-              <Link
-                href="/onboarding"
-                className="flex-1 rounded-2xl glass py-3 text-center text-xs font-semibold text-gray-300 active:scale-[0.98] transition-transform"
-              >
-                Full Setup
-              </Link>
-              <Link
-                href="/saved"
-                className="flex-1 rounded-2xl glass py-3 text-center text-xs font-semibold text-gray-300 active:scale-[0.98] transition-transform"
-              >
-                My Saved
-              </Link>
-            </div>
-          </section>
-
-          {/* Features */}
-          <section className="rounded-3xl glass p-5 fade-in-up" style={{ animationDelay: '0.3s' }}>
-            <h3 className="text-sm font-bold text-white mb-3">How it works</h3>
-            <div className="space-y-3">
-              {[
-                { icon: '🎯', title: 'AI-Curated Feed', desc: 'Venues & events matched to your vibe' },
-                { icon: '👆', title: 'Swipe to Discover', desc: 'Like, pass, or superlike — your call' },
-                { icon: '🔔', title: 'Smart Alerts', desc: 'Get notified for events you\'ll love' },
-                { icon: '🌍', title: 'Any City', desc: 'Works at home or while traveling' },
-              ].map((f, i) => (
-                <div key={i} className="flex items-start gap-3">
-                  <span className="text-lg">{f.icon}</span>
-                  <div>
-                    <div className="text-xs font-bold text-white">{f.title}</div>
-                    <div className="text-xs text-gray-400">{f.desc}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        </main>
-      </div>
+          ))}
+        </div>
+      </motion.div>
     </div>
   )
 }

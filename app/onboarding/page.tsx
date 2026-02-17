@@ -1,190 +1,193 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { SUPPORTED_CITIES, NIGHTLIFE_CITIES, VIBE_STYLES, MUSIC_GENRES, DAYS_OF_WEEK, BUDGET_LEVELS } from '@/lib/nightlife-data'
-import toast from 'react-hot-toast'
+import { motion, AnimatePresence } from 'framer-motion'
+
+const CITIES = [
+  'Barcelona', 'Berlin', 'Amsterdam', 'London', 'Paris', 'Lisbon',
+  'Prague', 'Budapest', 'Athens', 'Milan', 'Rome', 'Copenhagen',
+  'Istanbul', 'Dublin', 'New York', 'Tokyo', 'Bangkok', 'Seoul',
+]
+
+const VIBES = [
+  { id: 'chill', emoji: '😌', label: 'Chill' },
+  { id: 'energetic', emoji: '⚡', label: 'Energetic' },
+  { id: 'underground', emoji: '🕳️', label: 'Underground' },
+  { id: 'romantic', emoji: '🕯️', label: 'Romantic' },
+  { id: 'social', emoji: '💬', label: 'Social' },
+  { id: 'creative', emoji: '🎨', label: 'Creative' },
+  { id: 'foodie', emoji: '🍳', label: 'Foodie' },
+  { id: 'sporty', emoji: '🏃', label: 'Active' },
+  { id: 'cultural', emoji: '🏛️', label: 'Cultural' },
+  { id: 'outdoor', emoji: '🌿', label: 'Outdoor' },
+  { id: 'wild', emoji: '🔥', label: 'Wild' },
+  { id: 'wellness', emoji: '🧘', label: 'Mindful' },
+]
+
+const MUSIC = [
+  'techno', 'house', 'hip-hop', 'jazz', 'indie', 'latin',
+  'rock', 'pop', 'r&b', 'electronic', 'acoustic', 'world',
+]
 
 export default function OnboardingPage() {
   const router = useRouter()
   const [step, setStep] = useState(1)
   const [city, setCity] = useState('')
-  const [isVisitor, setIsVisitor] = useState(false)
-  const [vibeStyles, setVibeStyles] = useState<string[]>([])
-  const [goOutDays, setGoOutDays] = useState<string[]>(['friday', 'saturday'])
-  const [budgetLevel, setBudgetLevel] = useState('medium')
-  const [musicGenres, setMusicGenres] = useState<string[]>([])
-  const [loading, setLoading] = useState(false)
+  const [vibes, setVibes] = useState<string[]>([])
+  const [genres, setGenres] = useState<string[]>([])
 
-  const selectedCityInfo = NIGHTLIFE_CITIES.find(c => c.city === city)
+  useEffect(() => {
+    const stored = localStorage.getItem('vibeswipe_city')
+    if (stored) setCity(stored)
+  }, [])
 
-  const toggleItem = (arr: string[], setter: (v: string[]) => void, item: string) => {
-    setter(arr.includes(item) ? arr.filter(i => i !== item) : [...arr, item])
+  const toggle = (arr: string[], item: string) =>
+    arr.includes(item) ? arr.filter(x => x !== item) : [...arr, item]
+
+  const handleFinish = () => {
+    if (!city) return
+    localStorage.setItem('vibeswipe_city', city)
+    localStorage.setItem('vibeswipe_userId', `demo_${Date.now()}`)
+    localStorage.setItem('vibeswipe_vibes', JSON.stringify(vibes))
+    localStorage.setItem('vibeswipe_genres', JSON.stringify(genres))
+    router.push('/swipe')
   }
 
-  const handleComplete = async () => {
-    if (!city) {
-      toast.error('Please select a city')
-      return
-    }
-    setLoading(true)
-
-    try {
-      const response = await fetch('/api/onboarding', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: `user_${Date.now()}@vibeswipe.app`,
-          currentCity: city,
-          currentCountry: selectedCityInfo?.country || '',
-          isVisitor,
-          vibeStyles,
-          goOutDays,
-          budgetLevel,
-          musicGenres,
-        }),
-      })
-
-      const data = await response.json()
-      localStorage.setItem('vibeswipe_userId', data.userId)
-      localStorage.setItem('vibeswipe_city', city)
-      localStorage.setItem('vibeswipe_country', selectedCityInfo?.country || '')
-
-      // Seed data
-      await fetch('/api/seed', { method: 'POST' })
-
-      toast.success('Profile created! Let\'s explore.')
-      router.push('/swipe')
-    } catch (error) {
-      console.error('Onboarding error:', error)
-      toast.error('Something went wrong.')
-    } finally {
-      setLoading(false)
-    }
-  }
+  const totalSteps = 3
 
   return (
-    <div className="min-h-screen">
-      <div className="mx-auto min-h-screen max-w-[420px] relative overflow-hidden">
-        <div className="pointer-events-none absolute -top-32 -left-32 h-64 w-64 rounded-full bg-[radial-gradient(circle,rgba(168,85,247,0.2),transparent_70%)]" />
-
-        {/* Progress bar */}
-        <div className="px-6 pt-6">
-          <div className="flex gap-2">
-            {[1, 2, 3, 4].map(s => (
-              <div
-                key={s}
-                className={`h-1 flex-1 rounded-full transition-all duration-300 ${
-                  s <= step ? 'bg-gradient-to-r from-purple-500 to-pink-500' : 'bg-white/10'
-                }`}
-              />
-            ))}
-          </div>
+    <div className="min-h-screen flex flex-col px-6 pt-safe">
+      {/* ── Progress ── */}
+      <div className="pt-6 pb-2">
+        <div className="flex gap-2">
+          {Array.from({ length: totalSteps }).map((_, i) => (
+            <div
+              key={i}
+              className={`h-0.5 flex-1 rounded-full transition-all duration-500 ${
+                i + 1 <= step
+                  ? 'bg-gradient-to-r from-purple-500 to-fuchsia-500'
+                  : 'bg-white/[0.06]'
+              }`}
+            />
+          ))}
         </div>
+      </div>
 
-        <main className="px-6 pt-6 pb-8">
+      {/* ── Steps ── */}
+      <div className="flex-1 pt-6 pb-8">
+        <AnimatePresence mode="wait">
           {/* Step 1: City */}
           {step === 1 && (
-            <div className="fade-in-up">
-              <h1 className="text-2xl font-extrabold text-white mb-1">Where are you?</h1>
-              <p className="text-sm text-gray-400 mb-6">We'll find the best local spots for you.</p>
+            <motion.div
+              key="step1"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              <h1 className="text-2xl font-bold text-white mb-1">Where are you?</h1>
+              <p className="text-[var(--text-secondary)] text-sm mb-8">
+                We&apos;ll find events happening near you.
+              </p>
 
               <select
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
-                className="w-full rounded-2xl bg-white/5 border border-white/10 px-4 py-3.5 text-sm font-semibold text-white focus:border-purple-500 focus:outline-none appearance-none mb-4"
+                className="w-full rounded-xl bg-white/[0.04] border border-[var(--border)] px-4 py-3.5 text-sm text-white focus:border-[var(--accent)] focus:outline-none appearance-none mb-6"
                 style={{ fontSize: '16px' }}
               >
-                <option value="" className="bg-[#1a1225]">Select your city...</option>
-                {SUPPORTED_CITIES.map(c => (
-                  <option key={c} value={c} className="bg-[#1a1225]">{c}</option>
+                <option value="" className="bg-[var(--surface)]">Select city...</option>
+                {CITIES.map(c => (
+                  <option key={c} value={c} className="bg-[var(--surface)]">{c}</option>
                 ))}
               </select>
 
-              {city && (
-                <div className="flex gap-3 mb-6">
-                  <button
-                    onClick={() => setIsVisitor(false)}
-                    className={`flex-1 rounded-xl py-3 text-sm font-bold transition-all ${
-                      !isVisitor ? 'bg-purple-600 text-white' : 'bg-white/5 text-gray-400 border border-white/10'
-                    }`}
-                  >
-                    🏠 Local
-                  </button>
-                  <button
-                    onClick={() => setIsVisitor(true)}
-                    className={`flex-1 rounded-xl py-3 text-sm font-bold transition-all ${
-                      isVisitor ? 'bg-pink-600 text-white' : 'bg-white/5 text-gray-400 border border-white/10'
-                    }`}
-                  >
-                    ✈️ Traveling
-                  </button>
-                </div>
-              )}
-
               <button
-                onClick={() => city ? setStep(2) : toast.error('Select a city')}
-                className={`w-full rounded-2xl py-4 text-sm font-bold ${
-                  city ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white' : 'bg-white/5 text-gray-500'
+                onClick={() => city && setStep(2)}
+                disabled={!city}
+                className={`w-full py-3.5 rounded-xl text-sm font-semibold transition-all ${
+                  city
+                    ? 'btn-primary w-full'
+                    : 'bg-white/[0.03] text-[var(--text-tertiary)] border border-[var(--border)] cursor-not-allowed'
                 }`}
               >
-                Next →
+                Continue
               </button>
-            </div>
+            </motion.div>
           )}
 
-          {/* Step 2: Vibe */}
+          {/* Step 2: Vibes */}
           {step === 2 && (
-            <div className="fade-in-up">
-              <h1 className="text-2xl font-extrabold text-white mb-1">What's your vibe?</h1>
-              <p className="text-sm text-gray-400 mb-6">Pick all that match your style.</p>
+            <motion.div
+              key="step2"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              <h1 className="text-2xl font-bold text-white mb-1">What&apos;s your vibe?</h1>
+              <p className="text-[var(--text-secondary)] text-sm mb-6">
+                Pick all that resonate with you.
+              </p>
 
-              <div className="flex flex-wrap gap-2 mb-6">
-                {VIBE_STYLES.map(v => (
+              <div className="grid grid-cols-3 gap-2 mb-8">
+                {VIBES.map(v => (
                   <button
-                    key={v}
-                    onClick={() => toggleItem(vibeStyles, setVibeStyles, v)}
-                    className={`rounded-full px-3.5 py-2 text-xs font-bold transition-all ${
-                      vibeStyles.includes(v)
-                        ? 'bg-purple-600 text-white neon-purple'
-                        : 'bg-white/5 text-gray-300 border border-white/10'
+                    key={v.id}
+                    onClick={() => setVibes(toggle(vibes, v.id))}
+                    className={`flex flex-col items-center gap-1.5 p-3.5 rounded-2xl text-center transition-all ${
+                      vibes.includes(v.id)
+                        ? 'bg-white/[0.08] border border-[var(--accent)]/30 text-white'
+                        : 'bg-white/[0.02] border border-[var(--border)] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]'
                     }`}
                   >
-                    {v}
+                    <span className="text-xl">{v.emoji}</span>
+                    <span className="text-[11px] font-medium">{v.label}</span>
                   </button>
                 ))}
               </div>
 
               <div className="flex gap-3">
-                <button onClick={() => setStep(1)} className="flex-1 rounded-2xl glass py-3.5 text-sm font-semibold text-gray-300">
-                  ← Back
+                <button
+                  onClick={() => setStep(1)}
+                  className="flex-1 btn-ghost"
+                >
+                  Back
                 </button>
                 <button
                   onClick={() => setStep(3)}
-                  className="flex-1 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 py-3.5 text-sm font-bold text-white"
+                  className="flex-1 btn-primary"
                 >
-                  Next →
+                  Continue
                 </button>
               </div>
-            </div>
+            </motion.div>
           )}
 
-          {/* Step 3: Music & Days */}
+          {/* Step 3: Music */}
           {step === 3 && (
-            <div className="fade-in-up">
-              <h1 className="text-2xl font-extrabold text-white mb-1">Music & Schedule</h1>
-              <p className="text-sm text-gray-400 mb-4">What genres do you like? When do you go out?</p>
+            <motion.div
+              key="step3"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              <h1 className="text-2xl font-bold text-white mb-1">Music taste</h1>
+              <p className="text-[var(--text-secondary)] text-sm mb-6">
+                This helps us find the right events for you.
+              </p>
 
-              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Genres</h3>
-              <div className="flex flex-wrap gap-2 mb-5">
-                {MUSIC_GENRES.map(g => (
+              <div className="flex flex-wrap gap-2 mb-8">
+                {MUSIC.map(g => (
                   <button
                     key={g}
-                    onClick={() => toggleItem(musicGenres, setMusicGenres, g)}
-                    className={`rounded-full px-3 py-1.5 text-xs font-bold transition-all ${
-                      musicGenres.includes(g)
-                        ? 'bg-pink-600 text-white neon-pink'
-                        : 'bg-white/5 text-gray-300 border border-white/10'
+                    onClick={() => setGenres(toggle(genres, g))}
+                    className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${
+                      genres.includes(g)
+                        ? 'bg-white/[0.1] text-white border border-white/20'
+                        : 'bg-white/[0.02] text-[var(--text-tertiary)] border border-[var(--border)] hover:text-[var(--text-secondary)]'
                     }`}
                   >
                     {g}
@@ -192,98 +195,39 @@ export default function OnboardingPage() {
                 ))}
               </div>
 
-              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Go-out days</h3>
-              <div className="flex flex-wrap gap-2 mb-6">
-                {DAYS_OF_WEEK.map(d => (
-                  <button
-                    key={d}
-                    onClick={() => toggleItem(goOutDays, setGoOutDays, d)}
-                    className={`rounded-full px-3 py-1.5 text-xs font-bold transition-all capitalize ${
-                      goOutDays.includes(d)
-                        ? 'bg-blue-600 text-white neon-blue'
-                        : 'bg-white/5 text-gray-300 border border-white/10'
-                    }`}
-                  >
-                    {d.slice(0, 3)}
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex gap-3">
-                <button onClick={() => setStep(2)} className="flex-1 rounded-2xl glass py-3.5 text-sm font-semibold text-gray-300">
-                  ← Back
-                </button>
-                <button
-                  onClick={() => setStep(4)}
-                  className="flex-1 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 py-3.5 text-sm font-bold text-white"
-                >
-                  Next →
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Step 4: Budget & Launch */}
-          {step === 4 && (
-            <div className="fade-in-up">
-              <h1 className="text-2xl font-extrabold text-white mb-1">Almost there!</h1>
-              <p className="text-sm text-gray-400 mb-6">Set your budget level.</p>
-
-              <div className="grid grid-cols-2 gap-3 mb-6">
-                {BUDGET_LEVELS.map(b => (
-                  <button
-                    key={b}
-                    onClick={() => setBudgetLevel(b)}
-                    className={`rounded-2xl py-4 text-sm font-bold capitalize transition-all ${
-                      budgetLevel === b
-                        ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/20'
-                        : 'glass text-gray-300'
-                    }`}
-                  >
-                    {b === 'budget' && '💰 '}
-                    {b === 'medium' && '💎 '}
-                    {b === 'premium' && '👑 '}
-                    {b === 'any' && '🌍 '}
-                    {b}
-                  </button>
-                ))}
-              </div>
-
               {/* Summary */}
-              <div className="rounded-2xl glass p-4 mb-6 space-y-2">
+              <div className="glass-solid rounded-xl p-4 mb-6 space-y-2">
                 <div className="flex justify-between text-xs">
-                  <span className="text-gray-400">City</span>
-                  <span className="font-bold text-white">{city}</span>
+                  <span className="text-[var(--text-tertiary)]">City</span>
+                  <span className="text-white font-medium">{city}</span>
                 </div>
                 <div className="flex justify-between text-xs">
-                  <span className="text-gray-400">Status</span>
-                  <span className="font-bold text-white">{isVisitor ? 'Visitor' : 'Local'}</span>
+                  <span className="text-[var(--text-tertiary)]">Vibes</span>
+                  <span className="text-[var(--accent)] font-medium">{vibes.length} selected</span>
                 </div>
                 <div className="flex justify-between text-xs">
-                  <span className="text-gray-400">Vibes</span>
-                  <span className="font-bold text-purple-300">{vibeStyles.length} selected</span>
-                </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-gray-400">Genres</span>
-                  <span className="font-bold text-pink-300">{musicGenres.length} selected</span>
+                  <span className="text-[var(--text-tertiary)]">Genres</span>
+                  <span className="text-[var(--accent)] font-medium">{genres.length} selected</span>
                 </div>
               </div>
 
               <div className="flex gap-3">
-                <button onClick={() => setStep(3)} className="flex-1 rounded-2xl glass py-3.5 text-sm font-semibold text-gray-300">
-                  ← Back
+                <button
+                  onClick={() => setStep(2)}
+                  className="flex-1 btn-ghost"
+                >
+                  Back
                 </button>
                 <button
-                  onClick={handleComplete}
-                  disabled={loading}
-                  className="flex-1 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 py-3.5 text-sm font-bold text-white disabled:opacity-50"
+                  onClick={handleFinish}
+                  className="flex-1 btn-primary"
                 >
-                  {loading ? 'Creating...' : 'Start Swiping 🚀'}
+                  Start Swiping
                 </button>
               </div>
-            </div>
+            </motion.div>
           )}
-        </main>
+        </AnimatePresence>
       </div>
     </div>
   )

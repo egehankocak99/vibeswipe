@@ -1,151 +1,54 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence, useMotionValue, useTransform, PanInfo } from 'framer-motion'
 import Link from 'next/link'
+import {
+  MockEvent,
+  MOCK_EVENTS,
+  CATEGORIES,
+  getUnswipedEvents,
+  markSwiped,
+  saveEvent,
+  resetSwipes,
+} from '@/lib/mock-data'
 
-// ─── Types ───────────────────────────────────────────────────────────
-interface FeedCard {
-  id: string
-  cardType: 'venue' | 'event'
-  matchScore: number
-  // Venue fields
-  name?: string
-  venueType?: string
-  rating?: number
-  vibeScore?: number
-  priceLevel?: string
-  dressCode?: string
-  ageRange?: string
-  hasOutdoor?: boolean
-  hasDanceFloor?: boolean
-  hasLiveMusic?: boolean
-  hasFood?: boolean
-  instagramHandle?: string
-  bestNights?: string[]
-  popularTimes?: Record<string, string>
-  // Venue detail fields (from Foursquare/real data)
-  openingHours?: Record<string, string>
-  bestDaysToVisit?: string[]
-  mustTryItems?: string[]
-  tips?: string[]
-  specialties?: string
-  cuisine?: string
-  sourceApi?: string
-  dataFreshness?: string
-  websiteUrl?: string
-  // Event fields
-  title?: string
-  eventType?: string
-  category?: string
-  venueName?: string
-  startDate?: string
-  doorsOpen?: string
-  dayOfWeek?: string
-  isRecurring?: boolean
-  priceMin?: number
-  priceMax?: number
-  isFree?: boolean
-  artists?: string[]
-  organizer?: string
-  genre?: string
-  hypeScore?: number
-  sourcePlatform?: string
-  discoveredBy?: string
-  ticketUrl?: string
-  isTrending?: boolean
-  // Common
-  neighborhood?: string
-  city?: string
-  country?: string
-  description?: string
-  imageUrl?: string
-  tags?: string[]
-  musicGenres?: string[]
-  aiInsight?: string
-}
-
-// ─── Category config ─────────────────────────────────────────────────
-const CATEGORIES = [
-  { id: 'all', label: 'All', emoji: '✨' },
-  { id: 'nightlife', label: 'Nightlife', emoji: '🌙' },
-  { id: 'music', label: 'Music', emoji: '🎵' },
-  { id: 'social', label: 'Social', emoji: '🗣️' },
-  { id: 'sports', label: 'Sports', emoji: '🚴' },
-  { id: 'wellness', label: 'Wellness', emoji: '🧘' },
-  { id: 'food', label: 'Food', emoji: '🍳' },
-  { id: 'arts', label: 'Arts', emoji: '🎭' },
-  { id: 'learning', label: 'Learn', emoji: '📚' },
-  { id: 'community', label: 'Community', emoji: '🤝' },
-  { id: 'outdoor', label: 'Outdoor', emoji: '🌿' },
-]
-
-const EVENT_TYPE_EMOJIS: Record<string, string> = {
-  'dj-set': '🎧', 'concert': '🎤', 'live-music': '🎹', 'themed-party': '🎉',
-  'comedy': '😂', 'language-exchange': '🗣️', 'pub-quiz': '🧠', 'networking': '🤝',
-  'yoga': '🧘', 'running': '🏃', 'cycling': '🚴', 'sports-meetup': '⚽',
-  'cooking-class': '👨‍🍳', 'food-market': '🍽️', 'food-tasting': '🍷',
-  'art-show': '🖼️', 'open-air-cinema': '🎬', 'workshop': '🛠️', 'market': '🛍️',
-  'wellness-class': '💆', 'social-gathering': '👋', 'outdoor-adventure': '🏔️',
-}
-
-// ─── SwipeCard ───────────────────────────────────────────────────────
-function SwipeCard({
-  card,
+// ─── Coaster Card Component ─────────────────────────────────────────
+function CoasterCard({
+  event,
   onSwipe,
   isTop,
 }: {
-  card: FeedCard
+  event: MockEvent
   onSwipe: (dir: 'left' | 'right' | 'up') => void
   isTop: boolean
 }) {
   const x = useMotionValue(0)
   const y = useMotionValue(0)
-  const rotate = useTransform(x, [-300, 0, 300], [-25, 0, 25])
-  const likeOpacity = useTransform(x, [0, 100], [0, 1])
-  const nopeOpacity = useTransform(x, [-100, 0], [1, 0])
-  const superOpacity = useTransform(y, [-100, 0], [1, 0])
+  const rotate = useTransform(x, [-300, 0, 300], [-18, 0, 18])
+  const likeOpacity = useTransform(x, [0, 80], [0, 1])
+  const nopeOpacity = useTransform(x, [-80, 0], [1, 0])
+  const superOpacity = useTransform(y, [-80, 0], [1, 0])
 
-  const [showDetails, setShowDetails] = useState(false)
+  const [expanded, setExpanded] = useState(false)
 
   const handleDragEnd = (_: any, info: PanInfo) => {
-    if (info.offset.y < -120) return onSwipe('up')
-    if (info.offset.x > 120) return onSwipe('right')
-    if (info.offset.x < -120) return onSwipe('left')
+    const threshold = 100
+    if (info.offset.y < -threshold) return onSwipe('up')
+    if (info.offset.x > threshold) return onSwipe('right')
+    if (info.offset.x < -threshold) return onSwipe('left')
   }
 
-  const isVenue = card.cardType === 'venue'
-  const cardTitle = isVenue ? card.name : card.title
-  const cardSubtitle = isVenue
-    ? `${card.venueType} · ${card.neighborhood}`
-    : `${card.venueName} · ${card.neighborhood}`
-  const topScore = isVenue ? card.vibeScore : card.hypeScore
-  const typeEmoji = !isVenue ? (EVENT_TYPE_EMOJIS[card.eventType || ''] || '📌') : ''
-
-  // Format date nicely
-  const formatDate = (dateStr?: string) => {
-    if (!dateStr) return ''
+  const formatDate = (dateStr: string) => {
     const d = new Date(dateStr)
     return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
   }
 
-  // Price display
-  const priceDisplay = () => {
-    if (card.isFree) return 'Free'
-    if (isVenue && card.priceLevel) return card.priceLevel
-    if (card.priceMin !== undefined && card.priceMax !== undefined) {
-      if (card.priceMin === card.priceMax) return `€${card.priceMin}`
-      return `€${card.priceMin}–${card.priceMax}`
-    }
-    return ''
-  }
-
-  // Source badge color
-  const sourceBadgeColor = () => {
-    if (card.discoveredBy === 'ai_scout') return 'bg-purple-500/30 text-purple-300 border-purple-500/40'
-    if (card.sourcePlatform?.includes('Resident Advisor')) return 'bg-rose-500/30 text-rose-300 border-rose-500/40'
-    return 'bg-white/10 text-white/60 border-white/20'
-  }
+  const priceLabel = event.isFree
+    ? 'Free'
+    : event.priceMin === event.priceMax
+    ? `€${event.priceMin}`
+    : `€${event.priceMin}–€${event.priceMax}`
 
   return (
     <motion.div
@@ -153,467 +56,353 @@ function SwipeCard({
       style={{ x, y, rotate }}
       drag={isTop}
       dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
-      dragElastic={0.8}
+      dragElastic={0.7}
       onDragEnd={handleDragEnd}
-      initial={{ scale: isTop ? 1 : 0.95, opacity: isTop ? 1 : 0.7 }}
-      animate={{ scale: isTop ? 1 : 0.95, opacity: isTop ? 1 : 0.7 }}
-      exit={{ x: 0, opacity: 0, transition: { duration: 0.2 } }}
+      initial={{ scale: isTop ? 1 : 0.94, opacity: isTop ? 1 : 0.5 }}
+      animate={{ scale: isTop ? 1 : 0.94, opacity: isTop ? 1 : 0.5 }}
+      exit={{ opacity: 0, transition: { duration: 0.15 } }}
+      whileDrag={{ scale: 1.02 }}
     >
       <div
-        className="relative w-full h-full rounded-3xl overflow-hidden shadow-2xl"
-        onClick={() => isTop && setShowDetails(!showDetails)}
+        className="coaster-card coaster-texture w-full h-full flex flex-col"
+        onClick={() => isTop && setExpanded(!expanded)}
       >
-        {/* Background image */}
+        {/* ── Illustration Area ── */}
         <div
-          className="absolute inset-0 bg-cover bg-center"
+          className="coaster-illustration relative flex-shrink-0"
           style={{
-            backgroundImage: `url(${card.imageUrl || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=600'})`,
+            height: expanded ? '42%' : '58%',
+            background: `linear-gradient(145deg, ${event.gradientFrom}, ${event.gradientTo})`,
+            transition: 'height 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
           }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+        >
+          {/* Decorative shapes */}
+          <div className="absolute inset-0 overflow-hidden">
+            <div
+              className="absolute w-32 h-32 rounded-full opacity-10"
+              style={{
+                background: event.gradientTo,
+                top: '10%',
+                right: '-8%',
+                filter: 'blur(20px)',
+              }}
+            />
+            <div
+              className="absolute w-24 h-24 rounded-full opacity-[0.07]"
+              style={{
+                background: '#fff',
+                bottom: '15%',
+                left: '5%',
+                filter: 'blur(15px)',
+              }}
+            />
+            <div
+              className="absolute w-16 h-16 rounded-full opacity-[0.05]"
+              style={{
+                background: '#fff',
+                top: '40%',
+                right: '25%',
+                filter: 'blur(10px)',
+              }}
+            />
+            {/* Small decorative dots */}
+            <div className="absolute top-[20%] left-[15%] w-1.5 h-1.5 rounded-full bg-white/10" />
+            <div className="absolute top-[35%] right-[18%] w-1 h-1 rounded-full bg-white/15" />
+            <div className="absolute bottom-[25%] left-[40%] w-2 h-2 rounded-full bg-white/[0.07]" />
+            <div className="absolute top-[55%] left-[70%] w-1 h-1 rounded-full bg-white/10" />
+          </div>
 
-        {/* Swipe indicators */}
-        <motion.div
-          className="absolute top-8 right-8 border-4 border-emerald-400 rounded-xl px-4 py-2 z-20"
-          style={{ opacity: likeOpacity }}
-        >
-          <span className="text-emerald-400 font-bold text-2xl">LIKE</span>
-        </motion.div>
-        <motion.div
-          className="absolute top-8 left-8 border-4 border-rose-400 rounded-xl px-4 py-2 z-20"
-          style={{ opacity: nopeOpacity }}
-        >
-          <span className="text-rose-400 font-bold text-2xl">NOPE</span>
-        </motion.div>
-        <motion.div
-          className="absolute top-8 left-1/2 -translate-x-1/2 border-4 border-cyan-400 rounded-xl px-4 py-2 z-20"
-          style={{ opacity: superOpacity }}
-        >
-          <span className="text-cyan-400 font-bold text-2xl">SUPER ⭐</span>
-        </motion.div>
+          {/* Central emoji illustration */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span
+              className="select-none float"
+              style={{ fontSize: '5rem', filter: 'drop-shadow(0 8px 24px rgba(0,0,0,0.3))' }}
+            >
+              {event.emoji}
+            </span>
+          </div>
 
-        {/* Top badges */}
-        <div className="absolute top-4 left-4 flex gap-2 z-10">
-          <span className={`px-3 py-1 rounded-full text-xs font-medium border ${
-            isVenue ? 'bg-fuchsia-500/30 text-fuchsia-300 border-fuchsia-500/40' : 'bg-cyan-500/30 text-cyan-300 border-cyan-500/40'
-          }`}>
-            {isVenue ? '📍 Venue' : `${typeEmoji} ${card.eventType?.replace(/-/g, ' ')}`}
-          </span>
-          {card.isTrending && (
-            <span className="px-3 py-1 rounded-full text-xs font-medium border bg-orange-500/30 text-orange-300 border-orange-500/40">
-              🔥 Trending
-            </span>
-          )}
-          {card.discoveredBy && card.discoveredBy !== 'manual' && card.discoveredBy !== 'ai_scout' && (
-            <span className={`px-3 py-1 rounded-full text-xs font-medium border ${
-              card.discoveredBy === 'ticketmaster' ? 'bg-blue-500/30 text-blue-300 border-blue-500/40' :
-              card.discoveredBy === 'eventbrite' ? 'bg-orange-500/30 text-orange-300 border-orange-500/40' :
-              card.discoveredBy === 'foursquare' ? 'bg-pink-500/30 text-pink-300 border-pink-500/40' :
-              sourceBadgeColor()
-            }`}>
-              {card.discoveredBy === 'ticketmaster' ? '🎫' : card.discoveredBy === 'eventbrite' ? '🎪' : '📍'} {card.discoveredBy}
-            </span>
-          )}
-          {card.discoveredBy === 'ai_scout' && (
-            <span className={`px-3 py-1 rounded-full text-xs font-medium border ${sourceBadgeColor()}`}>
-              🤖 AI Scout
-            </span>
+          {/* Swipe indicators */}
+          <motion.div
+            className="absolute top-6 right-6 rounded-2xl px-4 py-2 z-20 border-2 border-emerald-400/80 bg-emerald-400/10 backdrop-blur-md"
+            style={{ opacity: likeOpacity }}
+          >
+            <span className="text-emerald-400 font-bold text-lg tracking-wide">SAVE</span>
+          </motion.div>
+          <motion.div
+            className="absolute top-6 left-6 rounded-2xl px-4 py-2 z-20 border-2 border-white/30 bg-white/5 backdrop-blur-md"
+            style={{ opacity: nopeOpacity }}
+          >
+            <span className="text-white/70 font-bold text-lg tracking-wide">SKIP</span>
+          </motion.div>
+          <motion.div
+            className="absolute top-6 left-1/2 -translate-x-1/2 rounded-2xl px-4 py-2 z-20 border-2 border-amber-400/80 bg-amber-400/10 backdrop-blur-md"
+            style={{ opacity: superOpacity }}
+          >
+            <span className="text-amber-400 font-bold text-lg tracking-wide">LOVE ★</span>
+          </motion.div>
+
+          {/* Category pill */}
+          <div className="absolute top-5 left-5 z-10">
+            <div className="px-3 py-1 rounded-full bg-black/20 backdrop-blur-md border border-white/10">
+              <span className="text-white/80 text-xs font-medium">
+                {CATEGORIES.find(c => c.id === event.category)?.emoji} {event.category}
+              </span>
+            </div>
+          </div>
+
+          {/* Match score */}
+          <div className="absolute top-5 right-5 z-10">
+            <div
+              className="w-11 h-11 rounded-full flex items-center justify-center border-2 bg-black/20 backdrop-blur-md"
+              style={{ borderColor: `${event.accentColor}80` }}
+            >
+              <span className="text-white text-xs font-bold">{event.matchScore}%</span>
+            </div>
+          </div>
+
+          {/* Trending badge */}
+          {event.isTrending && (
+            <div className="absolute bottom-4 left-5 z-10">
+              <div className="px-2.5 py-1 rounded-full bg-orange-500/20 backdrop-blur-md border border-orange-400/20">
+                <span className="text-orange-300 text-[11px] font-semibold">🔥 Trending</span>
+              </div>
+            </div>
           )}
         </div>
 
-        {/* Match score */}
-        {card.matchScore > 0 && (
-          <div className="absolute top-4 right-4 z-10">
-            <div className={`w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold border-2 ${
-              card.matchScore >= 80 ? 'bg-emerald-500/30 border-emerald-400 text-emerald-300' :
-              card.matchScore >= 60 ? 'bg-amber-500/30 border-amber-400 text-amber-300' :
-              'bg-white/10 border-white/20 text-white/60'
-            }`}>
-              {card.matchScore}%
-            </div>
-          </div>
-        )}
+        {/* ── Info Area ── */}
+        <div className="flex-1 bg-[var(--surface)] p-5 flex flex-col justify-between relative overflow-hidden">
+          {/* Subtle top gradient from illustration */}
+          <div
+            className="absolute top-0 left-0 right-0 h-16 opacity-10"
+            style={{
+              background: `linear-gradient(to bottom, ${event.gradientTo}, transparent)`,
+            }}
+          />
 
-        {/* Main content */}
-        <div className="absolute bottom-0 left-0 right-0 p-6 z-10">
-          {/* Category pill */}
-          {!isVenue && card.category && (
-            <div className="mb-2">
-              <span className="px-2.5 py-0.5 rounded-full bg-white/10 text-white/70 text-[11px] uppercase tracking-wider font-medium">
-                {CATEGORIES.find(c => c.id === card.category)?.emoji} {card.category}
-              </span>
-            </div>
-          )}
-
-          <h2 className="text-2xl font-bold text-white mb-1 drop-shadow-lg">{cardTitle}</h2>
-          <p className="text-white/70 text-sm mb-3">{cardSubtitle}</p>
-
-          {/* Event-specific info */}
-          {!isVenue && (
-            <div className="flex flex-wrap gap-2 mb-3">
-              {card.startDate && (
-                <span className="px-2.5 py-1 rounded-lg bg-white/10 text-white/80 text-xs">
-                  📅 {formatDate(card.startDate)}
-                </span>
-              )}
-              {card.doorsOpen && (
-                <span className="px-2.5 py-1 rounded-lg bg-white/10 text-white/80 text-xs">
-                  🕐 {card.doorsOpen}
-                </span>
-              )}
-              {priceDisplay() && (
-                <span className={`px-2.5 py-1 rounded-lg text-xs ${
-                  card.isFree ? 'bg-emerald-500/20 text-emerald-300' : 'bg-white/10 text-white/80'
-                }`}>
-                  {card.isFree ? '🆓' : '💰'} {priceDisplay()}
-                </span>
-              )}
-              {card.isRecurring && (
-                <span className="px-2.5 py-1 rounded-lg bg-blue-500/20 text-blue-300 text-xs">
-                  🔄 Recurring
-                </span>
-              )}
-            </div>
-          )}
-
-          {/* Venue-specific info */}
-          {isVenue && (
-            <div className="flex flex-wrap gap-2 mb-3">
-              {card.rating && (
-                <span className="px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-300 text-xs">
-                  ⭐ {card.rating.toFixed(1)}
-                </span>
-              )}
-              {priceDisplay() && (
-                <span className="px-2.5 py-1 rounded-lg bg-white/10 text-white/80 text-xs">
-                  {priceDisplay()}
-                </span>
-              )}
-              {card.hasDanceFloor && (
-                <span className="px-2.5 py-1 rounded-lg bg-fuchsia-500/20 text-fuchsia-300 text-xs">💃 Dance floor</span>
-              )}
-              {card.hasOutdoor && (
-                <span className="px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 text-xs">🌿 Outdoor</span>
-              )}
-            </div>
-          )}
-
-          {/* Artists / Performers */}
-          {card.artists && card.artists.length > 0 && card.artists[0] !== '' && (
-            <p className="text-white/60 text-xs mb-2">
-              🎤 {card.artists.slice(0, 3).join(' · ')}
+          <div className="relative z-10">
+            <h2 className="text-xl font-bold text-white leading-tight mb-1">{event.title}</h2>
+            <p className="text-[var(--text-secondary)] text-sm mb-3">
+              {event.venueName} · {event.neighborhood}
             </p>
-          )}
 
-          {/* Tags */}
-          <div className="flex flex-wrap gap-1.5 mb-3">
-            {(card.tags || []).slice(0, 5).map(tag => (
-              <span key={tag} className="px-2 py-0.5 rounded-full bg-white/10 text-white/60 text-[11px]">
-                #{tag}
+            {/* Meta row */}
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              <span className="tag-pill">📅 {formatDate(event.startDate)}</span>
+              <span className="tag-pill">🕐 {event.doorsOpen}</span>
+              <span className={`tag-pill ${event.isFree ? 'bg-emerald-500/10 text-emerald-400' : ''}`}>
+                {event.isFree ? '🆓' : '💰'} {priceLabel}
               </span>
-            ))}
-          </div>
+              {event.isRecurring && <span className="tag-pill">🔄 Weekly</span>}
+            </div>
 
-          {/* AI Insight */}
-          {card.aiInsight && (
-            <p className="text-white/50 text-xs italic">
-              🤖 {card.aiInsight}
-            </p>
-          )}
+            {/* Tags */}
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {event.tags.slice(0, 4).map(tag => (
+                <span key={tag} className="text-[var(--text-tertiary)] text-[11px]">
+                  #{tag}
+                </span>
+              ))}
+            </div>
 
-          {/* Expanded details */}
-          <AnimatePresence>
-            {showDetails && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                className="mt-3 pt-3 border-t border-white/10 overflow-hidden"
-              >
-                {card.description && (
-                  <p className="text-white/70 text-sm mb-3">{card.description}</p>
-                )}
-
-                {/* ── Venue Details: Hours, Tips, What to Order ── */}
-                {isVenue && card.openingHours && Object.keys(card.openingHours).length > 0 && (
-                  <div className="mb-3">
-                    <p className="text-white/80 text-xs font-semibold mb-1.5">🕐 Opening Hours</p>
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
-                      {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => (
-                        card.openingHours?.[day] ? (
-                          <p key={day} className={`text-xs ${
-                            card.bestDaysToVisit?.includes(day) ? 'text-emerald-300 font-semibold' : 'text-white/50'
-                          }`}>
-                            {day.slice(0, 3).toUpperCase()}: {card.openingHours[day]}
-                            {card.bestDaysToVisit?.includes(day) ? ' ⭐' : ''}
-                          </p>
-                        ) : null
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {isVenue && card.bestDaysToVisit && card.bestDaysToVisit.length > 0 && (
-                  <p className="text-emerald-300/80 text-xs mb-2">
-                    ✨ Best days to go: <span className="font-semibold">{card.bestDaysToVisit.map(d => d.charAt(0).toUpperCase() + d.slice(1)).join(', ')}</span>
-                  </p>
-                )}
-
-                {isVenue && card.mustTryItems && card.mustTryItems.length > 0 && (
-                  <div className="mb-2">
-                    <p className="text-amber-300/80 text-xs font-semibold mb-1">🍹 Must Try</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {card.mustTryItems.map((item, i) => (
-                        <span key={i} className="px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-200 text-[11px] border border-amber-500/20">
-                          {item}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {isVenue && card.tips && card.tips.length > 0 && (
-                  <div className="mb-2">
-                    <p className="text-cyan-300/80 text-xs font-semibold mb-1">💡 Tips</p>
-                    {card.tips.slice(0, 2).map((tip, i) => (
-                      <p key={i} className="text-white/50 text-xs italic mb-1">"{tip}"</p>
-                    ))}
-                  </div>
-                )}
-
-                {isVenue && card.specialties && (
-                  <p className="text-white/50 text-xs mb-1">🏷️ Known for: {card.specialties}</p>
-                )}
-
-                {/* ── Event Details ── */}
-                {!isVenue && card.ticketUrl && (
-                  <a
-                    href={card.ticketUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-block mb-2 px-3 py-1.5 rounded-lg bg-purple-600/40 text-purple-200 text-xs font-semibold border border-purple-500/30 hover:bg-purple-600/60 transition-colors"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    🎟️ Get Tickets
-                  </a>
-                )}
-
-                {card.sourcePlatform && (
-                  <p className="text-white/40 text-xs mt-1">
-                    Source: {card.sourcePlatform}
-                    {card.sourceApi && card.sourceApi !== 'manual' && ` · Live data 🔄`}
-                  </p>
-                )}
-                {isVenue && card.bestNights && card.bestNights.length > 0 && (
-                  <p className="text-white/50 text-xs mt-1">
-                    🌙 Best nights: {card.bestNights.join(', ')}
-                  </p>
-                )}
-                {card.musicGenres && card.musicGenres.length > 0 && (
-                  <p className="text-white/50 text-xs mt-1">
-                    🎵 {card.musicGenres.join(', ')}
-                  </p>
-                )}
-                {isVenue && card.websiteUrl && (
-                  <a
-                    href={card.websiteUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-purple-400 text-xs underline mt-1 inline-block"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    🌐 Visit website
-                  </a>
-                )}
-              </motion.div>
+            {/* Artists */}
+            {event.artists.length > 0 && event.artists[0] !== '' && (
+              <p className="text-[var(--text-secondary)] text-xs mb-2">
+                🎤 {event.artists.join(' · ')}
+              </p>
             )}
-          </AnimatePresence>
+
+            {/* Expanded: AI insight + description */}
+            <AnimatePresence>
+              {expanded && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="overflow-hidden"
+                >
+                  <p className="text-[var(--text-secondary)] text-sm leading-relaxed mb-3">
+                    {event.description}
+                  </p>
+                  <div
+                    className="rounded-xl p-3 mb-2"
+                    style={{ background: `${event.accentColor}10`, border: `1px solid ${event.accentColor}15` }}
+                  >
+                    <p className="text-xs leading-relaxed" style={{ color: `${event.accentColor}cc` }}>
+                      🤖 {event.aiInsight}
+                    </p>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Bottom hint */}
+          <div className="relative z-10 flex items-center justify-center pt-1">
+            <span className="text-[var(--text-tertiary)] text-[10px]">
+              {expanded ? 'tap to collapse' : 'tap for details'}
+            </span>
+          </div>
         </div>
       </div>
     </motion.div>
   )
 }
 
-// ─── Main swipe page ─────────────────────────────────────────────────
+// ─── Main Swipe Page ─────────────────────────────────────────────────
 export default function SwipePage() {
-  const [feed, setFeed] = useState<FeedCard[]>([])
+  const [feed, setFeed] = useState<MockEvent[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
-  const [loading, setLoading] = useState(true)
   const [activeCategory, setActiveCategory] = useState('all')
-  const [city, setCity] = useState('')
-  const [userId, setUserId] = useState('')
   const [swipeCount, setSwipeCount] = useState(0)
-  const [lastAction, setLastAction] = useState<{ action: string; card: string } | null>(null)
+  const [lastAction, setLastAction] = useState<{ action: string; title: string } | null>(null)
+  const [city, setCity] = useState('')
+  const [loaded, setLoaded] = useState(false)
 
-  // Load user from localStorage
   useEffect(() => {
-    const storedUser = localStorage.getItem('vibeswipe_userId')
     const storedCity = localStorage.getItem('vibeswipe_city')
-    if (storedUser) setUserId(storedUser)
-    if (storedCity) setCity(storedCity)
+    setCity(storedCity || '')
+    setLoaded(true)
   }, [])
 
-  // Fetch feed
-  const fetchFeed = useCallback(async () => {
-    if (!city) return
-    setLoading(true)
-    try {
-      const params = new URLSearchParams({ city })
-      if (userId) params.set('userId', userId)
-      if (activeCategory !== 'all') params.set('category', activeCategory)
-
-      const res = await fetch(`/api/feed?${params}`)
-      const data = await res.json()
-      setFeed(data.feed || [])
-      setCurrentIndex(0)
-    } catch (err) {
-      console.error('Failed to fetch feed:', err)
-    } finally {
-      setLoading(false)
-    }
-  }, [city, userId, activeCategory])
+  const loadFeed = useCallback(() => {
+    const events = getUnswipedEvents(activeCategory)
+    setFeed(events)
+    setCurrentIndex(0)
+  }, [activeCategory])
 
   useEffect(() => {
-    fetchFeed()
-  }, [fetchFeed])
+    if (loaded) loadFeed()
+  }, [loaded, loadFeed])
 
-  // Handle swipe
-  const handleSwipe = async (dir: 'left' | 'right' | 'up') => {
+  const handleSwipe = (dir: 'left' | 'right' | 'up') => {
     const card = feed[currentIndex]
     if (!card) return
 
-    const action = dir === 'right' ? 'like' : dir === 'up' ? 'superlike' : 'pass'
-    setLastAction({ action, card: (card.name || card.title) || '' })
+    const action = dir === 'right' ? 'save' : dir === 'up' ? 'love' : 'skip'
+
+    // Save on right or up
+    if (dir === 'right' || dir === 'up') {
+      saveEvent(card.id)
+    }
+    markSwiped(card.id)
+
+    setLastAction({ action, title: card.title })
     setSwipeCount(prev => prev + 1)
 
-    // Record swipe
-    try {
-      await fetch('/api/swipe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: userId || 'anonymous',
-          cardId: card.id,
-          cardType: card.cardType,
-          action,
-        }),
-      })
-    } catch (err) {
-      console.error('Failed to record swipe:', err)
-    }
-
-    setTimeout(() => setLastAction(null), 1500)
+    setTimeout(() => setLastAction(null), 1800)
     setCurrentIndex(prev => prev + 1)
   }
 
-  // ─── No city set ─────────────────────────────────────────────────────
+  const handleReset = () => {
+    resetSwipes()
+    loadFeed()
+    setSwipeCount(0)
+  }
+
+  // ── Loading ──
+  if (!loaded) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center fade-in">
+          <div className="text-4xl mb-3 pulse-soft">✨</div>
+          <p className="text-[var(--text-tertiary)] text-sm">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // ── No city ──
   if (!city) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-gray-950 via-purple-950/20 to-gray-950 flex items-center justify-center p-4">
-        <div className="text-center max-w-md">
-          <div className="text-6xl mb-4">📍</div>
-          <h1 className="text-2xl font-bold text-white mb-3">Set your city first</h1>
-          <p className="text-white/60 mb-6">Complete onboarding to start swiping on events and venues in your city.</p>
-          <Link
-            href="/onboarding"
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white font-semibold hover:from-purple-500 hover:to-fuchsia-500 transition-all"
-          >
-            Get Started →
+      <div className="min-h-screen flex items-center justify-center px-6">
+        <div className="text-center fade-in-up">
+          <div className="text-5xl mb-4">📍</div>
+          <h1 className="text-xl font-bold text-white mb-2">Pick your city first</h1>
+          <p className="text-[var(--text-secondary)] text-sm mb-6">
+            Set up your profile so we can curate events for you.
+          </p>
+          <Link href="/onboarding" className="btn-primary">
+            Get Started
           </Link>
         </div>
       </div>
     )
   }
 
-  // ─── Loading ─────────────────────────────────────────────────────────
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-gray-950 via-purple-950/20 to-gray-950 flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-5xl mb-4 animate-pulse">🤖</div>
-          <p className="text-white/60 text-sm">AI Scout is finding things to do in {city}...</p>
-        </div>
-      </div>
-    )
-  }
-
-  // ─── No cards left ───────────────────────────────────────────────────
   const currentCard = feed[currentIndex]
   const nextCard = feed[currentIndex + 1]
 
+  // ── All swiped ──
   if (!currentCard) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-gray-950 via-purple-950/20 to-gray-950 flex flex-col">
+      <div className="min-h-screen flex flex-col">
         {/* Header */}
-        <header className="px-4 py-3 flex items-center justify-between">
-          <Link href="/" className="text-lg font-bold bg-gradient-to-r from-purple-400 to-fuchsia-400 bg-clip-text text-transparent">
-            VibeSwipe
-          </Link>
-          <div className="flex gap-3">
-            <Link href="/saved" className="text-white/60 hover:text-white text-sm">❤️ Saved</Link>
-            <Link href="/alerts" className="text-white/60 hover:text-white text-sm">🔔 Alerts</Link>
+        <header className="px-5 pt-4 pb-2 flex items-center justify-between">
+          <Link href="/" className="text-lg font-bold gradient-text">VibeSwipe</Link>
+          <div className="flex gap-2">
+            <Link href="/saved" className="nav-icon text-lg">❤️</Link>
+            <Link href="/alerts" className="nav-icon text-lg">🔔</Link>
           </div>
         </header>
 
-        <div className="flex-1 flex items-center justify-center p-4">
-          <div className="text-center max-w-md">
-            <div className="text-6xl mb-4">🎉</div>
-            <h2 className="text-2xl font-bold text-white mb-3">You&apos;ve seen it all!</h2>
-            <p className="text-white/60 mb-2">
+        <div className="flex-1 flex items-center justify-center px-6">
+          <div className="text-center fade-in-up">
+            <div className="text-5xl mb-4">🎉</div>
+            <h2 className="text-xl font-bold text-white mb-2">You&apos;ve seen it all!</h2>
+            <p className="text-[var(--text-secondary)] text-sm mb-1">
               {swipeCount > 0
-                ? `You swiped through ${swipeCount} cards. Nice!`
-                : 'No events found for this category.'}
+                ? `${swipeCount} events explored`
+                : 'No events in this category'}
             </p>
-            <p className="text-white/40 text-sm mb-6">Our AI scouts are finding more events. Check back soon!</p>
+            <p className="text-[var(--text-tertiary)] text-xs mb-6">
+              New events are added daily.
+            </p>
             <div className="flex gap-3 justify-center">
-              <button
-                onClick={fetchFeed}
-                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white font-medium hover:from-purple-500 hover:to-fuchsia-500 transition-all"
-              >
-                Refresh Feed
+              <button onClick={handleReset} className="btn-primary">
+                Reset & Explore Again
               </button>
-              <Link
-                href="/saved"
-                className="px-5 py-2.5 rounded-xl bg-white/10 text-white font-medium hover:bg-white/15 transition-all"
-              >
+              <Link href="/saved" className="btn-ghost">
                 View Saved
               </Link>
             </div>
           </div>
         </div>
+
+        <BottomNav active="swipe" />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-950 via-purple-950/20 to-gray-950 flex flex-col">
-      {/* Header */}
-      <header className="px-4 py-3 flex items-center justify-between shrink-0">
-        <Link href="/" className="text-lg font-bold bg-gradient-to-r from-purple-400 to-fuchsia-400 bg-clip-text text-transparent">
-          VibeSwipe
-        </Link>
-        <div className="flex items-center gap-1.5 text-white/50 text-xs">
+    <div className="min-h-screen flex flex-col">
+      {/* ── Header ── */}
+      <header className="px-5 pt-4 pb-2 flex items-center justify-between shrink-0 z-20">
+        <Link href="/" className="text-lg font-bold gradient-text">VibeSwipe</Link>
+        <div className="flex items-center gap-1 text-[var(--text-tertiary)] text-xs">
           <span>📍 {city}</span>
-          <span>·</span>
+          <span className="mx-1">·</span>
           <span>{feed.length - currentIndex} left</span>
         </div>
-        <div className="flex gap-3">
-          <Link href="/saved" className="text-white/60 hover:text-white text-sm">❤️</Link>
-          <Link href="/alerts" className="text-white/60 hover:text-white text-sm">🔔</Link>
+        <div className="flex gap-2">
+          <Link href="/saved" className="text-lg opacity-50 hover:opacity-80 transition-opacity">❤️</Link>
+          <Link href="/alerts" className="text-lg opacity-50 hover:opacity-80 transition-opacity">🔔</Link>
         </div>
       </header>
 
-      {/* Category filters */}
-      <div className="px-4 py-2 shrink-0 overflow-x-auto scrollbar-none">
-        <div className="flex gap-2 min-w-max">
+      {/* ── Category Pills ── */}
+      <div className="px-4 py-2 shrink-0 overflow-x-auto hide-scrollbar z-20">
+        <div className="flex gap-1.5 min-w-max">
           {CATEGORIES.map(cat => (
             <button
               key={cat.id}
               onClick={() => setActiveCategory(cat.id)}
               className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
                 activeCategory === cat.id
-                  ? 'bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white shadow-lg shadow-purple-500/25'
-                  : 'bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/70'
+                  ? 'bg-white/10 text-white border border-white/15'
+                  : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]'
               }`}
             >
               {cat.emoji} {cat.label}
@@ -622,68 +411,109 @@ export default function SwipePage() {
         </div>
       </div>
 
-      {/* Cards stack */}
-      <div className="flex-1 relative px-4 py-2 min-h-0">
-        <div className="relative w-full h-full max-w-md mx-auto" style={{ minHeight: '480px' }}>
+      {/* ── Card Stack ── */}
+      <div className="flex-1 relative px-4 py-2 min-h-0 z-10">
+        <div className="relative w-full h-full max-w-[380px] mx-auto" style={{ minHeight: '520px' }}>
           <AnimatePresence>
             {nextCard && (
-              <SwipeCard key={nextCard.id} card={nextCard} onSwipe={() => {}} isTop={false} />
+              <CoasterCard key={nextCard.id} event={nextCard} onSwipe={() => {}} isTop={false} />
             )}
             {currentCard && (
-              <SwipeCard key={currentCard.id} card={currentCard} onSwipe={handleSwipe} isTop={true} />
+              <CoasterCard key={currentCard.id} event={currentCard} onSwipe={handleSwipe} isTop={true} />
             )}
           </AnimatePresence>
         </div>
       </div>
 
-      {/* Action buttons */}
-      <div className="px-4 py-4 shrink-0">
-        <div className="flex items-center justify-center gap-5 max-w-xs mx-auto">
+      {/* ── Action Buttons ── */}
+      <div className="px-5 py-3 shrink-0 z-20">
+        <div className="flex items-center justify-center gap-4 max-w-[280px] mx-auto">
           <button
             onClick={() => handleSwipe('left')}
-            className="w-14 h-14 rounded-full bg-white/5 border border-rose-500/30 flex items-center justify-center hover:bg-rose-500/10 transition-all active:scale-90"
-            aria-label="Pass"
+            className="w-14 h-14 rounded-full glass-solid flex items-center justify-center hover:bg-[var(--surface-hover)] transition-all active:scale-90"
+            aria-label="Skip"
           >
-            <span className="text-2xl">✕</span>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="text-white/40">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
           </button>
 
           <button
             onClick={() => handleSwipe('up')}
-            className="w-16 h-16 rounded-full bg-gradient-to-r from-cyan-600 to-blue-600 flex items-center justify-center hover:from-cyan-500 hover:to-blue-500 transition-all shadow-lg shadow-cyan-500/25 active:scale-90"
-            aria-label="Super like"
+            className="w-16 h-16 rounded-full flex items-center justify-center transition-all active:scale-90"
+            style={{
+              background: `linear-gradient(135deg, ${currentCard.gradientFrom}, ${currentCard.gradientTo})`,
+              boxShadow: `0 4px 20px ${currentCard.accentColor}30`,
+            }}
+            aria-label="Love"
           >
-            <span className="text-3xl">⭐</span>
+            <span className="text-2xl">⭐</span>
           </button>
 
           <button
             onClick={() => handleSwipe('right')}
-            className="w-14 h-14 rounded-full bg-white/5 border border-emerald-500/30 flex items-center justify-center hover:bg-emerald-500/10 transition-all active:scale-90"
-            aria-label="Like"
+            className="w-14 h-14 rounded-full glass-solid flex items-center justify-center hover:bg-[var(--surface-hover)] transition-all active:scale-90"
+            aria-label="Save"
           >
-            <span className="text-2xl">❤️</span>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-white/60">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+            </svg>
           </button>
         </div>
       </div>
 
-      {/* Last action toast */}
+      {/* ── Floating Action Toast ── */}
       <AnimatePresence>
         {lastAction && (
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className={`fixed bottom-24 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full text-sm font-medium shadow-lg z-50 ${
-              lastAction.action === 'like' ? 'bg-emerald-500/90 text-white' :
-              lastAction.action === 'superlike' ? 'bg-cyan-500/90 text-white' :
-              'bg-white/10 text-white/70 backdrop-blur-xl'
-            }`}
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -10, scale: 0.95 }}
+            className="fixed bottom-28 left-1/2 -translate-x-1/2 z-50"
           >
-            {lastAction.action === 'like' && `❤️ Liked ${lastAction.card}`}
-            {lastAction.action === 'superlike' && `⭐ Super liked ${lastAction.card}`}
-            {lastAction.action === 'pass' && `Passed on ${lastAction.card}`}
+            <div className={`px-4 py-2 rounded-full text-sm font-medium backdrop-blur-xl border ${
+              lastAction.action === 'save'
+                ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20'
+                : lastAction.action === 'love'
+                ? 'bg-amber-500/15 text-amber-400 border-amber-500/20'
+                : 'bg-white/5 text-white/40 border-white/10'
+            }`}>
+              {lastAction.action === 'save' && `❤️ Saved`}
+              {lastAction.action === 'love' && `⭐ Loved`}
+              {lastAction.action === 'skip' && `Skipped`}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
+
+      <BottomNav active="swipe" />
     </div>
+  )
+}
+
+// ─── Bottom Nav Component ────────────────────────────────────────────
+function BottomNav({ active }: { active: string }) {
+  return (
+    <nav className="bottom-nav">
+      <div className="flex justify-around max-w-sm mx-auto">
+        <Link href="/swipe" className={`nav-item ${active === 'swipe' ? 'active' : ''}`}>
+          <span className="nav-icon">✦</span>
+          <span>Explore</span>
+        </Link>
+        <Link href="/saved" className={`nav-item ${active === 'saved' ? 'active' : ''}`}>
+          <span className="nav-icon">♡</span>
+          <span>Saved</span>
+        </Link>
+        <Link href="/alerts" className={`nav-item ${active === 'alerts' ? 'active' : ''}`}>
+          <span className="nav-icon">◎</span>
+          <span>Alerts</span>
+        </Link>
+        <Link href="/preferences" className={`nav-item ${active === 'prefs' ? 'active' : ''}`}>
+          <span className="nav-icon">⚙</span>
+          <span>Settings</span>
+        </Link>
+      </div>
+    </nav>
   )
 }
